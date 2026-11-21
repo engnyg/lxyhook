@@ -55,7 +55,11 @@ Then open http://localhost:8000.
 
 ## Hosting
 
-Any static host works. GitHub Pages: Settings > Pages > deploy from a branch, pick the branch and `/ (root)`.
+Live on GitHub Pages: https://engnyg.github.io/lxyhook/
+
+Pages serves the repo's default branch (`claude/fervent-bell-esb6ia`) from `/ (root)`, set in Settings > Pages >
+Build and deployment > Deploy from a branch. Every push to that branch redeploys in a minute or two. `.nojekyll` tells
+Pages to serve the files as they are. All paths in the site are relative, so it works under `/lxyhook/`.
 
 ## Notes
 
