@@ -165,7 +165,7 @@ function makeFigure({ shirt, pants, skin }, scale = 1.1) {
 // a Roblox avatar (3D thumbnail, OBJ -> GLB): stand it on its feet, face it +z, scale it to targetH, and hang the
 // legs and arms on pivots so it can walk. Body parts are named Player*, accessories Handle*; R6 and R15 both work,
 // limbs are sorted by where they sit rather than by name.
-function makeAvatar(src, targetH = 3.0) {
+export function makeAvatar(src, targetH = 3.0) {
   src.updateMatrixWorld(true);
   const meshes = [];
   src.traverse((o) => { if (o.isMesh) meshes.push(o); });
@@ -179,25 +179,54 @@ function makeAvatar(src, targetH = 3.0) {
   const H = Math.max(0.01, box.max.y - box.min.y), Wd = Math.max(0.01, box.max.x - box.min.x);
   const cx = (box.min.x + box.max.x) / 2, cz = (box.min.z + box.max.z) / 2, y0 = box.min.y;
   const groups = { legL: [], legR: [], armL: [], armR: [], head: [] };
+  // layered clothing (a jacket over both arms, trousers over both legs) is one mesh across several limbs; swinging
+  // the limbs under it tears the model apart, so those limbs stay put and the avatar walks with a bob instead
+  let stiffLegs = false, stiffArms = false;
   for (const m of parts) {
-    const c = new THREE.Box3().setFromObject(m).getCenter(new THREE.Vector3());
-    const fy = (c.y - y0) / H, fx = (c.x - cx) / Wd;
-    if (fy > 0.8) groups.head.push(m);
-    else if (fy < 0.4 && Math.abs(fx) > 0.02) groups[fx < 0 ? 'legL' : 'legR'].push(m);
-    else if (fy >= 0.4 && Math.abs(fx) > 0.22) groups[fx < 0 ? 'armL' : 'armR'].push(m);
+    const mb = new THREE.Box3().setFromObject(m);
+    const c = mb.getCenter(new THREE.Vector3());
+    const fy = (c.y - y0) / H, fx = (c.x - cx) / Wd, w = (mb.max.x - mb.min.x) / Wd, bottom = (mb.min.y - y0) / H;
+    let g = null;
+    if (fy > 0.8 && Math.abs(fx) < 0.2) g = 'head';
+    else if (fy < 0.4 && Math.abs(fx) > 0.02) g = fx < 0 ? 'legL' : 'legR';
+    else if (fy >= 0.4 && Math.abs(fx) > 0.22 && bottom < 0.6) g = fx < 0 ? 'armL' : 'armR';   // a raised arm (posed) stays still
+    if ((g === 'legL' || g === 'legR') && w > 0.36) stiffLegs = true;
+    if ((g === 'armL' || g === 'armR') && w > 0.36) stiffArms = true;
+    if (!g && bottom < 0.3 && w > 0.3) stiffLegs = true;
+    if (!g && fy >= 0.4 && fy <= 0.8 && w > 0.75) stiffArms = true;
+    if (g) groups[g].push(m);
   }
-  const pivot = (list) => {
+  if (stiffLegs) { groups.legL = []; groups.legR = []; }
+  if (stiffArms) { groups.armL = []; groups.armR = []; }
+  // R15 limbs come in three pieces whose top sits above the joint, so the pivot goes a little lower than the top
+  // (an R6 limb is one piece and turns at its top). The lower half of an R15 leg hangs on its own knee pivot.
+  const pivot = (list, isLeg) => {
     const p = new THREE.Group();
+    p.userData.knee = null;
     if (!list.length) return p;
     const b = new THREE.Box3();
     list.forEach((m) => b.expandByObject(m));
-    p.position.set((b.min.x + b.max.x) / 2, b.max.y, (b.min.z + b.max.z) / 2);
+    const len = b.max.y - b.min.y;
+    const drop = list.length > 1 ? len * 0.08 : 0;
+    p.position.set((b.min.x + b.max.x) / 2, b.max.y - drop, (b.min.z + b.max.z) / 2);
     src.add(p);
     p.updateMatrixWorld(true);
     list.forEach((m) => p.attach(m));
+    if (isLeg && list.length > 1) {
+      const pieces = list.map((m) => ({ m, b: new THREE.Box3().setFromObject(m) })).sort((u, v) => v.b.max.y - u.b.max.y);
+      const lower = pieces.slice(1);
+      const kb = new THREE.Box3();
+      lower.forEach((q) => kb.expandByObject(q.m));
+      const knee = new THREE.Group();
+      knee.position.copy(p.worldToLocal(new THREE.Vector3((kb.min.x + kb.max.x) / 2, kb.max.y, (kb.min.z + kb.max.z) / 2)));
+      p.add(knee);
+      knee.updateMatrixWorld(true);
+      lower.forEach((q) => knee.attach(q.m));
+      p.userData.knee = knee;
+    }
     return p;
   };
-  const legL = pivot(groups.legL), legR = pivot(groups.legR), armL = pivot(groups.armL), armR = pivot(groups.armR);
+  const legL = pivot(groups.legL, true), legR = pivot(groups.legR, true), armL = pivot(groups.armL), armR = pivot(groups.armR);
   const headBox = new THREE.Box3();
   groups.head.forEach((m) => headBox.expandByObject(m));
   const k = targetH / H;
@@ -206,10 +235,15 @@ function makeAvatar(src, targetH = 3.0) {
   inner.rotation.y = Math.PI;
   inner.scale.setScalar(k);
   holder.position.set(-cx, -y0, -cz);
-  meshes.forEach((m) => { if (m.material) { m.material.side = THREE.FrontSide; } m.frustumCulled = false; });
+  // the OBJ marks every textured part as blended; draw them as cut-outs so layers keep their order
+  meshes.forEach((m) => {
+    const mats = Array.isArray(m.material) ? m.material : [m.material];
+    mats.forEach((mt) => { if (!mt) return; mt.side = THREE.FrontSide; mt.transparent = false; mt.alphaTest = 0.5; mt.depthWrite = true; mt.needsUpdate = true; });
+    m.frustumCulled = false;
+  });
   const headY = groups.head.length ? ((headBox.min.y + headBox.max.y) / 2 - y0) * k : targetH * 0.88;
   const height = Math.min(targetH * 1.35, (all.max.y - y0) * k);
-  return { root, body, legL, legR, armL, armR, head: groups.head[0] || new THREE.Group(), heads: new Set(groups.head), torso: null, scale: 1, height, headY, avatar: true };
+  return { root, body, legL, legR, armL, armR, head: groups.head[0] || new THREE.Group(), heads: new Set(groups.head), torso: null, scale: 1, height, headY, avatar: true, stiff: stiffLegs || stiffArms };
 }
 
 // a rifle built from rounded boxes and cylinders, forward is +z. The parts that take a wrap are listed in userData
@@ -641,11 +675,18 @@ export function createWorld(canvas) {
         }
         e.sndT -= dt;
         if (e.sndT <= 0) { e.sndT = 3 + Math.random() * 5; steps.push({ pos: e.pos.clone().setY(0.05), loud: Math.random() < 0.6 ? 1 : 0.6, t: 0, life: 1.6 }); }
-        const sw = e.pause > 0 ? 0 : Math.sin(e.phase) * 0.7;
+        const amp = f.avatar ? 0.5 : 0.7;
+        const sw = e.pause > 0 ? 0 : Math.sin(e.phase) * amp;
         f.legL.rotation.x = sw; f.legR.rotation.x = -sw; f.armL.rotation.x = -sw * 0.8; f.armR.rotation.x = sw * 0.8;
+        // R15 knees bend while the leg is behind the body, the way a step looks
+        if (f.legL.userData.knee) f.legL.userData.knee.rotation.x = Math.max(0, -sw) * 1.1;
+        if (f.legR.userData.knee) f.legR.userData.knee.rotation.x = Math.max(0, sw) * 1.1;
         f.root.position.set(e.pos.x, 0, e.pos.z);
         f.body.rotation.x = 0;
-        f.body.position.y = 0;
+        // avatars that can't swing their legs bounce along instead
+        const moving = e.pause <= 0;
+        f.body.position.y = f.stiff && moving ? Math.abs(Math.sin(e.phase)) * 0.16 : 0;
+        f.body.rotation.z = f.stiff && moving ? Math.sin(e.phase) * 0.05 : 0;
       } else {
         e.deadT += dt;
         f.body.rotation.x = -Math.min(1, e.deadT / 0.35) * Math.PI / 2;
