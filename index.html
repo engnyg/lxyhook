@@ -4,31 +4,36 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>lxyhook · rivals</title>
-  <meta name="description" content="lxyhook is a script for rivals. silent aim, esp, sound esp, five ragebot styles, unlock all, a movement recorder and around two hundred other toggles.">
-  <meta name="theme-color" content="#0c0b0a">
+  <meta name="description" content="lxyhook is a script for rivals. silent aim, aimbot with curve presets, esp, sound esp, five ragebot styles, unlock all, a movement recorder and around two hundred other toggles.">
+  <meta name="theme-color" content="#07080b">
   <meta property="og:type" content="website">
   <meta property="og:title" content="lxyhook · rivals">
   <meta property="og:description" content="a rivals script that's annoying to play against.">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230c0b0a'/%3E%3Cpath d='M3 3h2v8h4v2H3z' fill='%23ff6a2b'/%3E%3Cpath d='M9 3h2l1 2 1-2h2l-2 4 2 4h-2l-1-2-1 2H9l2-4z' fill='%23ebe6da'/%3E%3C/svg%3E">
+  <link rel="icon" href="assets/favicon.png" type="image/png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/style.css">
+  <link rel="modulepreload" href="assets/vendor/three.module.min.js">
 </head>
 <body>
   <a class="skip" href="#main">skip to content</a>
 
+  <!-- the ascii world (WebGL), and the overlay the script draws on top of it -->
+  <canvas class="stage" id="stage" aria-hidden="true"></canvas>
+  <canvas class="stage stage--hud" id="overlay" aria-hidden="true"></canvas>
+
   <header class="top">
-    <div class="wrap top__row">
-      <a class="brand" href="#top" aria-label="lxyhook, back to the top">lxyhook<sup>v3</sup></a>
-      <nav class="nav" aria-label="sections">
+    <div class="top__row">
+      <a class="brand" href="#top" aria-label="lxyhook, back to the top"><img src="assets/logo.png" alt="" width="26" height="26">lxyhook<sup>v3</sup></a>
+      <nav class="nav" aria-label="chapters">
         <a href="#combat">combat</a>
         <a href="#visuals">visuals</a>
         <a href="#world">world</a>
         <a href="#player">player</a>
         <a href="#cosmetics">cosmetics</a>
         <a href="#automation">automation</a>
-        <a href="#faq">faq</a>
+        <a href="#settings">faq</a>
       </nav>
       <div class="top__act">
         <a class="btn btn--ghost js-discord" href="#" target="_blank" rel="noopener" hidden>discord</a>
@@ -37,392 +42,186 @@
     </div>
   </header>
 
+  <!-- a working copy of the real menu; the chapters flip its pages and switches as you scroll -->
+  <div class="sl" id="menu"></div>
+  <div class="sl-toasts" aria-live="polite"></div>
+
   <main id="main">
-
-    <!-- hero -->
-    <section class="hero" id="top" aria-labelledby="hero-title">
-      <div class="wrap hero__layout">
-        <div class="hero__copy">
-          <p class="kicker">for rivals <span>/</span> build 52 <span>/</span> 2026-10-24</p>
-          <h1 id="hero-title">a rivals script that's annoying to play against.</h1>
-          <p class="lede">silent aim, esp, a ragebot with five different personalities, unlock all, and around two hundred other toggles. paste one loadstring, hit right shift, done.</p>
-
-          <div class="loader">
-            <pre class="loader__code" aria-label="loader script"><code><span class="t-var">script_key</span> = <span class="t-str">"your key here"</span>
+    <section class="chapter chapter--hero" id="top" data-chapter="hero" aria-labelledby="hero-title">
+      <div class="card card--hero" data-pocket>
+        <p class="kicker">for rivals <span>/</span> build 52 <span>/</span> 2026-10-24</p>
+        <h1 id="hero-title">a rivals script that's annoying to play against.</h1>
+        <p class="lede">silent aim, esp, a ragebot with five different personalities, unlock all, and around two hundred other toggles. paste one loadstring, hit right shift, done.</p>
+        <div class="loader">
+          <pre class="loader__code" aria-label="loader script"><code><span class="t-var">script_key</span> = <span class="t-str">"your key here"</span>
 <span class="t-fn">loadstring</span>(<span class="t-var">game</span>:<span class="t-fn">HttpGet</span>(<span class="t-str js-loader-url">"https://api.luarmor.net/files/v4/loaders/d2b05e953ac72861d1cfd7e9297caccd.lua"</span>))()</code></pre>
-            <button class="btn btn--accent loader__btn js-copy" type="button"><span class="js-copy-label">copy</span></button>
-          </div>
-          <p class="hero__note">keys go through luarmor. <span class="js-discord-note">grab one in the discord</span>, paste it between the quotes, run it in a rivals server.</p>
+          <button class="btn btn--accent loader__btn js-copy" type="button"><span class="js-copy-label">copy</span></button>
         </div>
-
-          <div class="viewport">
-            <div class="bar">
-              <span>LxYHook&nbsp;&nbsp;|&nbsp;&nbsp;Rivals&nbsp;&nbsp;|&nbsp;&nbsp;<b class="js-fps">60</b> fps</span>
-              <span class="bar__note">ascii demo, not real gameplay</span>
-            </div>
-            <canvas class="ascii ascii--arena" data-scene="arena" data-size="13" aria-hidden="true"></canvas>
-          </div>
-
-          <aside class="menu menu--float" aria-label="demo switches for the ascii scene">
-            <div class="menu__head"><span>LxYHook</span><span class="menu__hint">try these</span></div>
-            <div class="gb">
-              <p class="gb__title">Combat</p>
-              <button class="sw" type="button" role="switch" aria-checked="true" data-flag="arena.silent"><span class="sw__box"></span>Enable Silent Aim</button>
-              <button class="sw" type="button" role="switch" aria-checked="false" data-flag="arena.aimbot"><span class="sw__box"></span>Enable Aimbot</button>
-              <button class="sw" type="button" role="switch" aria-checked="true" data-flag="arena.circle"><span class="sw__box"></span>Show Targeting Circle</button>
-              <label class="sl"><span class="sl__head"><span>Radius (px)</span><output>120</output></span><input type="range" min="40" max="240" step="1" value="120" data-flag="arena.radius"></label>
-            </div>
-            <div class="gb">
-              <p class="gb__title">Player ESP</p>
-              <button class="sw" type="button" role="switch" aria-checked="true" data-flag="arena.esp"><span class="sw__box"></span>Enable ESP</button>
-              <button class="sw" type="button" role="switch" aria-checked="true" data-flag="arena.health"><span class="sw__box"></span>Health Bar</button>
-              <button class="sw" type="button" role="switch" aria-checked="false" data-flag="arena.chams"><span class="sw__box"></span>Chams</button>
-              <button class="sw" type="button" role="switch" aria-checked="true" data-flag="arena.tracers"><span class="sw__box"></span>Enable Bullet Tracers</button>
-              <button class="sw" type="button" role="switch" aria-checked="true" data-flag="arena.dmg"><span class="sw__box"></span>Enable Damage Text</button>
-            </div>
-          </aside>
+        <p class="note">keys go through luarmor. <span class="js-discord-text">grab one in the discord</span>, paste it between the quotes, run it in a rivals server.</p>
+        <p class="hint">scroll down. the menu is a working copy of the real one, click anything in it.</p>
       </div>
     </section>
 
-    <!-- combat -->
-    <section class="feat" id="combat" aria-labelledby="combat-title">
-      <div class="wrap feat__grid">
-        <div class="feat__copy">
-          <p class="tag">[ combat ]</p>
-          <h2 id="combat-title">aim you can actually tune.</h2>
-          <p>aimbot moves your camera. silent aim doesn't, the bullets just go where they should. both get their own fov, hitbox pick and priority (closest to crosshair, closest distance, lowest health).</p>
-          <p>linear mode has a curve that scales every step by how far you still are from the target: constant, linear, ease in, ease out, s-curve. the graph is drawn from the same five functions the script uses, so what you see is what you get.</p>
-          <ul class="checks">
-            <li>aimbot (lock, linear, ai, spring)</li>
-            <li>silent aim</li>
-            <li>triggerbot</li>
-            <li>flickbot</li>
-            <li>target lock</li>
-            <li>no spread, auto fire</li>
-            <li>melee + grenade tweaks</li>
-            <li>hit + elimination feedback</li>
-          </ul>
-          <p class="aside"><b>about the ragebot:</b> it comes in five styles (kh, ue, k8x, careful, fw ue). target order can put flagged hackers first, or leave them for last. your call.</p>
-        </div>
-        <div class="feat__demo">
-          <div class="win">
-            <div class="bar"><span>aimbot / linear / curve</span><span class="bar__note js-curve-label">ease out</span></div>
-            <canvas class="ascii ascii--curve" data-scene="curve" data-size="12" aria-hidden="true"></canvas>
-          </div>
-          <div class="menu">
-            <div class="gb">
-              <p class="gb__title">Activation</p>
-              <p class="dd-label">Curve Preset</p>
-              <div class="seg" role="radiogroup" aria-label="curve preset" data-flag="curve.preset">
-                <button type="button" role="radio" aria-checked="false" data-value="Constant">Constant</button>
-                <button type="button" role="radio" aria-checked="false" data-value="Linear">Linear</button>
-                <button type="button" role="radio" aria-checked="false" data-value="EaseIn">Ease In</button>
-                <button type="button" role="radio" aria-checked="true" data-value="EaseOut">Ease Out</button>
-                <button type="button" role="radio" aria-checked="false" data-value="SCurve">S-Curve</button>
-              </div>
-              <label class="sl"><span class="sl__head"><span>Smoothing (%)</span><output>0</output></span><input type="range" min="0" max="90" step="1" value="0" data-flag="curve.smooth"></label>
-            </div>
-          </div>
-        </div>
+    <section class="chapter" id="combat" data-chapter="combat" aria-labelledby="combat-title">
+      <div class="card" data-pocket>
+        <p class="tag">[ combat ]</p>
+        <h2 id="combat-title">aim you can actually tune.</h2>
+        <p>aimbot moves your camera. silent aim doesn't, the bullets just go where they should. both get their own fov, activation rules, hitbox pick and priority.</p>
+        <p>linear mode scales every step by a curve of how far you still are from the head: constant, linear, ease in, ease out, s-curve. it's switching curves as you scroll, watch how the camera snaps differently.</p>
+        <ul class="checks">
+          <li>aimbot (lock, linear, ai, spring)</li>
+          <li>silent aim</li>
+          <li>triggerbot + flickbot</li>
+          <li>target lock</li>
+          <li>no spread, auto fire</li>
+          <li>hit + elimination feedback</li>
+        </ul>
+        <p class="aside"><b>ragebot:</b> five styles (kh, ue, k8x, careful, fw ue). target order can put flagged hackers first, or leave them for last.</p>
       </div>
     </section>
 
-    <!-- visuals -->
-    <section class="feat" id="visuals" aria-labelledby="visuals-title">
-      <div class="wrap feat__grid">
-        <div class="feat__copy">
-          <p class="tag">[ visuals ]</p>
-          <h2 id="visuals-title">the quiet ones aren't that quiet.</h2>
-          <p>player esp does boxes, names, health and ammo bars, chams and glow, with colours per team. sound esp draws footsteps and other sounds where they happened, sized by how loud they were, so the guy crouching behind the wall shows up anyway.</p>
-          <p>there's also a crosshair editor, bullet tracers, third person, stretched res, viewmodel offsets, and switches to hide the flashbang, burn effect, scope overlay and ads vignette.</p>
-          <ul class="checks">
-            <li>player esp</li>
-            <li>chams + glow</li>
-            <li>sound esp</li>
-            <li>crosshair editor</li>
-            <li>bullet tracers</li>
-            <li>third person</li>
-            <li>stretched resolution</li>
-            <li>hide flash / scope / vignette</li>
-          </ul>
-        </div>
-        <div class="feat__demo">
-          <div class="win">
-            <div class="bar"><span>sound esp / top down</span><span class="bar__note">@ is you</span></div>
-            <canvas class="ascii ascii--sound" data-scene="sound" data-size="12" aria-hidden="true"></canvas>
-          </div>
-          <div class="menu menu--row">
-            <div class="gb">
-              <p class="gb__title">Sound ESP</p>
-              <button class="sw" type="button" role="switch" aria-checked="true" data-flag="sound.on"><span class="sw__box"></span>Enable Sound ESP</button>
-            </div>
-            <div class="gb">
-              <p class="gb__title">Player ESP</p>
-              <button class="sw" type="button" role="switch" aria-checked="false" data-flag="sound.esp"><span class="sw__box"></span>Enable ESP</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- world -->
-    <section class="feat" id="world" aria-labelledby="world-title">
-      <div class="wrap feat__grid">
-        <div class="feat__copy">
-          <p class="tag">[ world ]</p>
-          <h2 id="world-title">change the weather. only you get wet.</h2>
-          <p>lighting override with clock time, exposure, shadows, fog and atmosphere. post processing for bloom, colour grading, depth of field and sun rays. custom skyboxes (add your own from six textures), ambient sound, rain, and lightning with sparks.</p>
-          <p>all of it is on your screen only. the rest of the lobby keeps their boring sky.</p>
-          <ul class="checks">
-            <li>lighting override</li>
-            <li>time + exposure</li>
-            <li>fog + atmosphere</li>
-            <li>post processing</li>
-            <li>custom skybox</li>
-            <li>ambient sound</li>
-            <li>weather</li>
-            <li>lightning</li>
-          </ul>
-        </div>
-        <div class="feat__demo">
-          <div class="win">
-            <div class="bar"><span>sky &amp; weather</span><span class="bar__note js-clock">22:00</span></div>
-            <canvas class="ascii ascii--rain" data-scene="rain" data-size="12" aria-hidden="true"></canvas>
-          </div>
-          <div class="menu menu--row">
-            <div class="gb">
-              <p class="gb__title">Weather</p>
-              <button class="sw" type="button" role="switch" aria-checked="true" data-flag="rain.weather"><span class="sw__box"></span>Enable Weather</button>
-              <button class="sw" type="button" role="switch" aria-checked="true" data-flag="rain.lightning"><span class="sw__box"></span>Enable Lightning</button>
-            </div>
-            <div class="gb">
-              <p class="gb__title">Time &amp; Exposure</p>
-              <label class="sl"><span class="sl__head"><span>Clock Time</span><output>22</output></span><input type="range" min="0" max="24" step="0.25" value="22" data-flag="rain.clock"></label>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- player -->
-    <section class="feat" id="player" aria-labelledby="player-title">
-      <div class="wrap feat__grid">
-        <div class="feat__copy">
-          <p class="tag">[ player ]</p>
-          <h2 id="player-title">record a route once. run it forever.</h2>
-          <p>the movement recorder saves what you did, plays it back, and lines the replay up with where you're actually standing. name your recordings, keep a library, drop markers.</p>
-          <p>also in here: infinite double jumps, an animation player, character chams, name and display name spoofing, and a device spoof for picking which platform you show up as.</p>
-          <ul class="checks">
-            <li>movement recorder</li>
-            <li>playback alignment</li>
-            <li>infinite double jumps</li>
-            <li>animation player</li>
-            <li>character chams</li>
-            <li>name spoof</li>
-            <li>device spoof</li>
-          </ul>
-        </div>
-        <div class="feat__demo">
-          <div class="win">
-            <div class="bar"><span>movement recorder</span><span class="bar__note js-rec">rec</span></div>
-            <canvas class="ascii ascii--rec" data-scene="recorder" data-size="12" aria-hidden="true"></canvas>
-          </div>
-          <div class="menu menu--row">
-            <div class="gb">
-              <p class="gb__title">Recorder</p>
-              <button class="sw" type="button" role="switch" aria-checked="true" data-flag="recorder.trail"><span class="sw__box"></span>Enable Movement Recorder</button>
-            </div>
-            <div class="gb">
-              <p class="gb__title">Air</p>
-              <button class="sw" type="button" role="switch" aria-checked="true" data-flag="recorder.infinite"><span class="sw__box"></span>Infinite Double Jumps</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- cosmetics -->
-    <section class="feat" id="cosmetics" aria-labelledby="cosmetics-title">
-      <div class="wrap feat__grid">
-        <div class="feat__copy">
-          <p class="tag">[ cosmetics ]</p>
-          <h2 id="cosmetics-title">every skin. zero grinding.</h2>
-          <p>unlock all, then dress your loadout from the catalogs: skins, wraps, charms, finishers. there's a rank charm override, a reroll button, and presets that save a whole look and can load it for you when you join.</p>
-          <p>it's client side. you'll see it, the rest of the lobby won't. (yes we get asked this a lot.)</p>
-          <ul class="checks">
-            <li>unlock all</li>
-            <li>skin catalog</li>
-            <li>wrap catalog</li>
-            <li>charms + rank charm override</li>
-            <li>finishers</li>
-            <li>cosmetic presets</li>
-            <li>auto load preset</li>
-          </ul>
-        </div>
-        <div class="feat__demo">
-          <div class="win">
-            <div class="bar"><span>cosmetics / preview</span><span class="bar__note js-wrap">wrap</span></div>
-            <canvas class="ascii ascii--wrap" data-scene="wrap" data-size="12" data-min-cols="80" aria-hidden="true"></canvas>
-          </div>
-          <div class="menu menu--row">
-            <div class="gb">
-              <p class="gb__title">Cosmetic Runtime</p>
-              <button class="sw" type="button" role="switch" aria-checked="true" data-flag="wrap.runtime"><span class="sw__box"></span>Enable Cosmetic Changes</button>
-            </div>
-            <div class="gb">
-              <p class="gb__title">Unlock All</p>
-              <button class="sw" type="button" role="switch" aria-checked="true" data-flag="wrap.unlock"><span class="sw__box"></span>Unlock All Cosmetics</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- automation -->
-    <section class="feat" id="automation" aria-labelledby="automation-title">
-      <div class="wrap feat__grid">
-        <div class="feat__copy">
-          <p class="tag">[ automation ]</p>
-          <h2 id="automation-title">the boring parts, handled.</h2>
-          <p>auto queue, map vote, weapon bans and respawn, so you don't have to babysit the lobby. map-specific loadouts with a fallback set. auto pickup grabs drops, and it deals with counters and subspace tripmines too.</p>
-          <p>the hacker detector tags the obvious ones. the moderator detector can notify you, kick you, or send you back to the lobby when a mod (or a mod's friend) joins. rivals helper puts elo, level and win streak on the leaderboard and pings you when someone on a streak, or on your watchlist, shows up.</p>
-          <ul class="checks">
-            <li>auto queue</li>
-            <li>auto map vote</li>
-            <li>auto weapon ban</li>
-            <li>auto respawn</li>
-            <li>auto loadout</li>
-            <li>auto pickup</li>
-            <li>hacker detector</li>
-            <li>moderator detector</li>
-            <li>rivals helper</li>
-          </ul>
-        </div>
-        <div class="feat__demo">
-          <div class="win">
-            <div class="bar"><span>log</span><span class="bar__note">what it does while you get a drink</span></div>
-            <canvas class="ascii ascii--log" data-scene="log" data-size="12" aria-hidden="true"></canvas>
-          </div>
-          <div class="menu menu--row menu--three">
-            <div class="gb">
-              <p class="gb__title">Auto Queue</p>
-              <button class="sw" type="button" role="switch" aria-checked="true" data-flag="log.queue"><span class="sw__box"></span>Enabled</button>
-            </div>
-            <div class="gb">
-              <p class="gb__title">Hacker Detector</p>
-              <button class="sw" type="button" role="switch" aria-checked="true" data-flag="log.hacker"><span class="sw__box"></span>Enabled</button>
-            </div>
-            <div class="gb">
-              <p class="gb__title">Moderator Detector</p>
-              <button class="sw" type="button" role="switch" aria-checked="true" data-flag="log.mod"><span class="sw__box"></span>Enabled</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- settings + numbers -->
-    <section class="feat feat--plain" id="settings" aria-labelledby="settings-title">
-      <div class="wrap">
-        <div class="feat__copy feat__copy--wide">
-          <p class="tag">[ settings ]</p>
-          <h2 id="settings-title">it remembers how you like it.</h2>
-          <p>configs auto save and auto load. whole-menu profiles with export and import, a theme editor with your own presets, watermark, keybind list, and a button you can drag around on mobile. turn on <i>re-run after teleport</i> and it follows you into the next server by itself.</p>
-        </div>
-        <dl class="stats">
-          <div><dt>pages</dt><dd>35</dd></div>
-          <div><dt>toggles</dt><dd>~200</dd></div>
-          <div><dt>sliders</dt><dd>190</dd></div>
-          <div><dt>colour pickers</dt><dd>54</dd></div>
-          <div><dt>menu key</dt><dd>rshift</dd></div>
-        </dl>
-        <p class="stats__foot">counted straight from the source, not rounded up for marketing. (ok, the toggles are rounded. it's 199.)</p>
-      </div>
-    </section>
-
-    <!-- changelog -->
-    <section class="feat feat--plain" id="changelog" aria-labelledby="changelog-title">
-      <div class="wrap log-grid">
-        <div>
-          <p class="tag">[ changelog ]</p>
-          <h2 id="changelog-title">build 52</h2>
-          <p class="dim">2026-10-24. the latest one, trimmed down. the full list is in the discord.</p>
-        </div>
-        <ul class="changes">
-          <li><b class="add">+</b> starlight is the default menu now, and it opens instantly</li>
-          <li><b class="add">+</b> pages build the first time you open them instead of all at load</li>
-          <li><b class="add">+</b> auto ragebot style: plays kh, switches to fw ue once a hacker shows up</li>
-          <li><b class="add">+</b> fw weapon check (fw ue only)</li>
-          <li><b class="add">+</b> mouse buttons work as keybinds</li>
-          <li><b class="add">+</b> heavy attack cooldown override</li>
-          <li><b class="chg">~</b> name / display name spoofer rewritten</li>
-          <li><b class="chg">~</b> auto loadout logs every step and retries 3 times</li>
-          <li><b class="chg">~</b> less lag: lazy tooltips, colour picker only runs while it's open</li>
-          <li><b class="del">-</b> solix and sleepy menu styles removed</li>
+    <section class="chapter" id="visuals" data-chapter="visuals" aria-labelledby="visuals-title">
+      <div class="card" data-pocket>
+        <p class="tag">[ visuals ]</p>
+        <h2 id="visuals-title">the quiet ones aren't that quiet.</h2>
+        <p>player esp does boxes, names, health and ammo bars, chams and glow. sound esp draws footsteps, reloads and shots where they happened, sized by how loud they were, so the guy crouching behind the wall shows up anyway.</p>
+        <p>plus a crosshair editor, bullet tracers, third person, stretched res, viewmodel offsets, and switches for the flashbang, burn effect, scope overlay and ads vignette.</p>
+        <ul class="checks">
+          <li>player esp</li>
+          <li>chams + glow</li>
+          <li>sound esp</li>
+          <li>crosshair editor</li>
+          <li>bullet tracers</li>
+          <li>third person</li>
         </ul>
       </div>
     </section>
 
-    <!-- faq -->
-    <section class="feat feat--plain" id="faq" aria-labelledby="faq-title">
-      <div class="wrap log-grid">
-        <div>
-          <p class="tag">[ faq ]</p>
-          <h2 id="faq-title">stuff people ask.</h2>
-        </div>
-        <div class="faq">
-          <details open>
-            <summary>does it work in other games?</summary>
-            <p>no. on boot it waits for rivals' controller scripts, and if they aren't there it just stops. it won't do anything weird in other games, it won't do anything at all.</p>
-          </details>
-          <details>
-            <summary>where do i get a key?</summary>
-            <p><span class="js-discord-faq">in the discord.</span> keys are handled by luarmor. paste yours into <code>script_key</code> above the loadstring.</p>
-          </details>
-          <details>
-            <summary>how do i open the menu?</summary>
-            <p>right shift. you can rebind it in settings. on mobile there's a button you can drag wherever you want it.</p>
-          </details>
-          <details>
-            <summary>do i have to execute it again every server?</summary>
-            <p>not if you turn on re-run after teleport in settings. it queues itself for the next server (your executor needs queue_on_teleport for that).</p>
-          </details>
-          <details>
-            <summary>will i get banned?</summary>
-            <p>it's a script, so there's always a chance. the ragebot is loud, legit settings are a lot quieter. don't play on an account you'd cry about.</p>
-          </details>
+    <section class="chapter" id="world" data-chapter="world" aria-labelledby="world-title">
+      <div class="card" data-pocket>
+        <p class="tag">[ world ]</p>
+        <h2 id="world-title">change the weather. only you get wet.</h2>
+        <p>rain, lightning with sparks, custom skyboxes, ambient sound. lighting override with clock time, exposure, shadows, fog, and post processing on top.</p>
+        <p>keep scrolling and the clock time slider runs the night into midday. all of it is on your screen only, the rest of the lobby keeps their boring sky.</p>
+        <ul class="checks">
+          <li>weather + lightning</li>
+          <li>custom skybox</li>
+          <li>clock time</li>
+          <li>fog + atmosphere</li>
+          <li>bloom, sun rays, dof</li>
+          <li>ambient sound</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="chapter" id="player" data-chapter="player" aria-labelledby="player-title">
+      <div class="card" data-pocket>
+        <p class="tag">[ player ]</p>
+        <h2 id="player-title">record a route once. run it forever.</h2>
+        <p>the movement recorder saves what you did, plays it back and lines the replay up with where you're standing. name your recordings, keep a library.</p>
+        <p>that ledge at the end is out of reach. scroll a bit more and infinite double jumps turns on.</p>
+        <ul class="checks">
+          <li>movement recorder</li>
+          <li>playback alignment</li>
+          <li>infinite double jumps</li>
+          <li>animation player</li>
+          <li>character chams</li>
+          <li>name + device spoof</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="chapter" id="cosmetics" data-chapter="cosmetics" aria-labelledby="cosmetics-title">
+      <div class="card" data-pocket>
+        <p class="tag">[ cosmetics ]</p>
+        <h2 id="cosmetics-title">every skin. zero grinding.</h2>
+        <p>unlock all, then dress your loadout from the catalogs: skins, wraps, charms, finishers. there's a rank charm override and presets that save a whole look and load it when you join.</p>
+        <p>it's client side. you'll see it, the rest of the lobby won't. (the wraps on the rifle are preview patterns, not real ones.)</p>
+        <ul class="checks">
+          <li>unlock all</li>
+          <li>skins + wraps</li>
+          <li>charms</li>
+          <li>finishers</li>
+          <li>rank charm override</li>
+          <li>cosmetic presets</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="chapter" id="automation" data-chapter="automation" aria-labelledby="automation-title">
+      <div class="card" data-pocket>
+        <p class="tag">[ automation ]</p>
+        <h2 id="automation-title">the boring parts, handled.</h2>
+        <p>auto queue, map vote, weapon bans and respawn. per-map loadouts with a fallback set. auto pickup, and it deals with counters and subspace tripmines too.</p>
+        <p>the hacker detector tags the obvious ones. the moderator detector can notify you, kick you, or send you to the lobby when a mod or a mod's friend joins. rivals helper puts elo, level and win streak on the leaderboard.</p>
+        <ul class="checks">
+          <li>auto queue + map vote</li>
+          <li>auto weapon ban</li>
+          <li>auto loadout</li>
+          <li>auto pickup</li>
+          <li>hacker detector</li>
+          <li>moderator detector</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="chapter chapter--flat" id="settings" data-chapter="settings" aria-labelledby="settings-title">
+      <div class="flat" data-pocket>
+        <p class="tag">[ settings ]</p>
+        <h2 id="settings-title">it remembers how you like it.</h2>
+        <p class="dim">configs auto save and auto load. whole-menu profiles, a theme editor, watermark, keybind list, a draggable button on mobile. turn on <i>re-run after teleport</i> and it follows you into the next server.</p>
+        <dl class="stats">
+          <div><dt>pages</dt><dd>35</dd></div>
+          <div><dt>toggles</dt><dd>199</dd></div>
+          <div><dt>sliders</dt><dd>190</dd></div>
+          <div><dt>colour pickers</dt><dd>54</dd></div>
+          <div><dt>menu key</dt><dd>rshift</dd></div>
+        </dl>
+
+        <div class="split">
+          <div>
+            <h3>build 52 <span class="dim">2026-10-24</span></h3>
+            <ul class="changes">
+              <li><b class="add">+</b> starlight is the default menu now, and it opens instantly</li>
+              <li><b class="add">+</b> pages build the first time you open them</li>
+              <li><b class="add">+</b> auto ragebot style: plays kh, switches to fw ue once a hacker shows up</li>
+              <li><b class="add">+</b> mouse buttons work as keybinds</li>
+              <li><b class="add">+</b> heavy attack cooldown override</li>
+              <li><b class="chg">~</b> name / display name spoofer rewritten</li>
+              <li><b class="chg">~</b> auto loadout logs every step and retries 3 times</li>
+              <li><b class="del">-</b> solix and sleepy menu styles removed</li>
+            </ul>
+          </div>
+          <div class="faq">
+            <h3>stuff people ask</h3>
+            <details open><summary>does it work in other games?</summary><p>no. on boot it waits for rivals' controller scripts, and if they aren't there it just stops.</p></details>
+            <details><summary>where do i get a key?</summary><p><span class="js-discord-text">in the discord.</span> keys go through luarmor, paste yours into <code>script_key</code>.</p></details>
+            <details><summary>how do i open the menu?</summary><p>right shift, rebindable in settings. on mobile there's a button you can drag around.</p></details>
+            <details><summary>do i have to execute it every server?</summary><p>not with re-run after teleport on. it queues itself for the next server (needs queue_on_teleport).</p></details>
+            <details><summary>will i get banned?</summary><p>it's a script, there's always a chance. the ragebot is loud, legit settings are a lot quieter. don't play on an account you'd cry about.</p></details>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- end -->
-    <section class="end" aria-labelledby="end-title">
-      <div class="wrap">
-        <h2 class="end__title" id="end-title">that's it. go play.</h2>
-        <div class="loader loader--end">
+    <section class="chapter chapter--final" id="get" data-chapter="final" aria-labelledby="final-title">
+      <div class="card card--final" data-pocket>
+        <h2 id="final-title">that's it. go play.</h2>
+        <div class="loader">
           <pre class="loader__code"><code><span class="t-var">script_key</span> = <span class="t-str">"your key here"</span>
 <span class="t-fn">loadstring</span>(<span class="t-var">game</span>:<span class="t-fn">HttpGet</span>(<span class="t-str js-loader-url">"https://api.luarmor.net/files/v4/loaders/d2b05e953ac72861d1cfd7e9297caccd.lua"</span>))()</code></pre>
           <button class="btn btn--accent loader__btn js-copy" type="button"><span class="js-copy-label">copy</span></button>
         </div>
+        <p class="note">rivals only. not affiliated with roblox or the rivals devs.</p>
       </div>
     </section>
   </main>
 
   <footer class="foot">
-    <div class="wrap">
-      <canvas class="ascii ascii--logo" data-scene="logo" aria-hidden="true"></canvas>
-      <p class="sr-only">LxYHook</p>
-      <div class="foot__row">
-        <span>lxyhook <span class="dim">v3, build 52</span></span>
-        <span class="foot__links">
-          <a class="js-discord" href="#" target="_blank" rel="noopener" hidden>discord</a>
-          <a href="#top">back to top</a>
-        </span>
-        <span class="dim">not affiliated with roblox or the rivals devs.</span>
-      </div>
-    </div>
+    <span><img src="assets/logo.png" alt="" width="18" height="18"> lxyhook <span class="dim">v3, build 52</span></span>
+    <span class="foot__links"><a class="js-discord" href="#" target="_blank" rel="noopener" hidden>discord</a><a href="#top">back to top</a></span>
   </footer>
 
-  <script src="assets/main.js" defer></script>
+  <script type="module" src="assets/app.js"></script>
 </body>
 </html>

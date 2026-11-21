@@ -1,29 +1,42 @@
 # lxyhook site
 
-The landing page for LxYHook (Rivals). It's a plain static site with no build step and no dependencies:
+The landing page for LxYHook (Rivals). Static files, no build step, no npm install:
 
 ```
 index.html
+assets/app.js       scroll chapters, what each chapter switches on, notifications, copy button  (CONFIG is here)
+assets/world.js     the ascii world: a three.js scene rendered small, then redrawn as letters by a shader
+assets/hud.js       the in-game overlay drawn on top: esp boxes, names, health bars, fov circle, tracers, sound rings
+assets/menu.js      a working copy of the Starlight menu (pages, groupboxes, toggles, sliders, dropdowns)
 assets/style.css
-assets/main.js   copy buttons, the fake menu switches, and every ascii animation
+assets/logo.png     the LY logo, taken from the script (base layer + accent-tinted Y)
+assets/vendor/three.module.min.js   three.js r169 (MIT, licence next to it)
 ```
 
 ## Things to change
 
-At the top of `assets/main.js`:
+At the top of `assets/app.js`:
 
 ```js
 const CONFIG = {
-  discord: '',   // put the invite here, e.g. 'https://discord.gg/abc123'
+  discord: '',   // invite link, e.g. 'https://discord.gg/abc123'
   loader: 'https://api.luarmor.net/files/v4/loaders/d2b05e953ac72861d1cfd7e9297caccd.lua',
 };
 ```
 
-While `discord` is empty, the discord buttons stay hidden. Once it's filled in, they show up in the top bar and the footer, and "the discord" in the hero note and the faq turns into a link.
+While `discord` is empty the discord buttons stay hidden; once it's set they show up and "the discord" in the copy turns into a link.
 
-The build number and changelog are plain text in `index.html` (search for `build 52`).
+## The menu copy
+
+`assets/menu.js` rebuilds the LxYHook window from the live one: 930x560, 210px sidebar in the real tab order, 40px top bar,
+two 345px columns of groupboxes, Inter, the default "Starlight" theme colours and accent gradient, 20px checkboxes,
+50px slider rows, 72px label + dropdown rows. The Aimbot page matches the live window row for row; the other pages use
+the script's own section titles and labels, with a few filler rows where the preview needed one. To add or fix a page,
+edit `PAGES` in that file; the shorthand (`t`, `s`, `d`, `l`, `b`, `i`) is explained above it.
 
 ## Running it locally
+
+ES modules need a server (opening the file directly won't load them):
 
 ```
 python3 -m http.server 8000
@@ -33,10 +46,9 @@ Then open http://localhost:8000.
 
 ## Hosting
 
-Any static host works. For GitHub Pages: Settings > Pages > deploy from a branch, and pick the branch and `/ (root)`.
+Any static host works. GitHub Pages: Settings > Pages > deploy from a branch, pick the branch and `/ (root)`.
 
-## Notes on the animations
+## Notes
 
-- Each demo is a `<canvas data-scene="...">`. Every scene draws characters into a grid, and the grid paints itself onto the canvas (`SCENES.*` in `main.js`).
-- A scene only runs while it's on screen. With `prefers-reduced-motion` on, each scene shows a single still frame and only redraws when one of its switches is flipped.
-- The aim curve demo uses the same five functions as the script's linear aim mode (constant, linear, ease in, ease out, s-curve).
+- Without WebGL the page still works; the background becomes a plain gradient and the menu stays interactive.
+- With `prefers-reduced-motion` the world slows down and the pointer scramble is off.
