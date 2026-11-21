@@ -14,14 +14,16 @@
       "label": "4ph",
       "username": "4PH",
       "avatar": "media/players/62536494.webp",
-      "displayName": "4PH"
+      "displayName": "4PH",
+      "model": "media/avatars/62536494.glb"
     },
     {
       "id": 1786646999,
       "label": "319",
       "username": "319mol",
       "avatar": "media/players/1786646999.webp",
-      "displayName": "CgAim_tyn7"
+      "displayName": "CgAim_tyn7",
+      "model": "media/avatars/1786646999.glb"
     },
     {
       "id": 719253194,
@@ -43,14 +45,16 @@
       "label": "Xorfee",
       "username": "1Xorfee",
       "avatar": "media/players/716661842.webp",
-      "displayName": "1Xorfee"
+      "displayName": "1Xorfee",
+      "model": "media/avatars/716661842.glb"
     },
     {
       "id": 609896397,
       "label": "Bucket",
       "username": "Bucketv6",
       "avatar": "media/players/609896397.webp",
-      "displayName": "Bucket"
+      "displayName": "Bucket",
+      "model": "media/avatars/609896397.glb"
     },
     {
       "id": 3410760577,
@@ -65,35 +69,40 @@
       "label": "Reaper",
       "username": "1NotReaper",
       "avatar": "media/players/1617102732.webp",
-      "displayName": "1NotReaper"
+      "displayName": "1NotReaper",
+      "model": "media/avatars/1617102732.glb"
     },
     {
       "id": 1798946913,
       "label": "TW Cheese",
       "username": "cheesyner",
       "avatar": "media/players/1798946913.webp",
-      "displayName": "cheesyner"
+      "displayName": "cheesyner",
+      "model": "media/avatars/1798946913.glb"
     },
     {
       "id": 620888585,
       "label": "神話_波風水門",
       "username": "Y1SangWare",
       "avatar": "media/players/620888585.webp",
-      "displayName": "神話_波風水門"
+      "displayName": "神話_波風水門",
+      "model": "media/avatars/620888585.glb"
     },
     {
       "id": 1474356920,
       "label": "Hank",
       "username": "Zy3Oo",
       "avatar": "media/players/1474356920.webp",
-      "displayName": "Hank"
+      "displayName": "Hank",
+      "model": "media/avatars/1474356920.glb"
     },
     {
       "id": 2663844360,
       "label": "BoBo",
       "username": "webber7710",
       "avatar": "media/players/2663844360.webp",
-      "displayName": "Gemini_Argon"
+      "displayName": "Gemini_Argon",
+      "model": "media/avatars/2663844360.glb"
     }
   ]
 }
