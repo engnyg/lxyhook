@@ -1,0 +1,18 @@
+{
+  "updated": "2026-11-21",
+  "players": [
+    { "id": 91461245, "label": "corax", "username": "coraxisgod", "avatar": "media/players/91461245.webp", "displayName": "corax" },
+    { "id": 62536494, "label": "4ph", "username": "4PH", "avatar": "media/players/62536494.webp", "displayName": "4PH" },
+    { "id": 1786646999, "label": "319", "username": "319mol", "avatar": "media/players/1786646999.webp", "displayName": "CgAim_tyn7" },
+    { "id": 719253194, "label": "彈弓", "username": "SlayerMonsterKiller", "avatar": "media/players/719253194.webp", "displayName": "SlingshotBwai" },
+    { "id": 4701284318, "label": "swift", "username": "triggerbotlegend", "avatar": "media/players/4701284318.webp", "displayName": "Sub2Swift" },
+    { "id": 716661842, "label": "Xorfee", "username": "1Xorfee", "avatar": "media/players/716661842.webp", "displayName": "1Xorfee" },
+    { "id": 609896397, "label": "Bucket", "username": "Bucketv6", "avatar": "media/players/609896397.webp", "displayName": "Bucket" },
+    { "id": 3410760577, "label": "philhood", "username": "philhood", "avatar": "media/players/3410760577.webp", "displayName": "philhood" },
+    { "id": 1617102732, "label": "Reaper", "username": "1NotReaper", "avatar": "media/players/1617102732.webp", "displayName": "1NotReaper" },
+    { "id": 1798946913, "label": "TW Cheese", "username": "cheesyner", "avatar": "media/players/1798946913.webp", "displayName": "cheesyner" },
+    { "id": 620888585, "label": "神話_波風水門", "username": "Y1SangWare", "avatar": "media/players/620888585.webp", "displayName": "神話_波風水門" },
+    { "id": 1474356920, "label": "Hank", "username": "Zy3Oo", "avatar": "media/players/1474356920.webp", "displayName": "Hank" },
+    { "id": 2663844360, "label": "BoBo", "username": "webber7710", "avatar": "media/players/2663844360.webp", "displayName": "Gemini_Argon" }
+  ]
+}
