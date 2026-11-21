@@ -10,8 +10,17 @@ assets/hud.js       the in-game overlay drawn on top: esp boxes, names, health b
 assets/menu.js      a working copy of the Starlight menu (pages, groupboxes, toggles, sliders, dropdowns)
 assets/style.css
 assets/logo.png     the LY logo, taken from the script (base layer + accent-tinted Y)
-assets/vendor/three.module.min.js   three.js r169 (MIT, licence next to it)
+assets/vendor/three.module.min.js   three.js r169 (MIT, licence next to it), plus GLTFLoader / meshopt / RoundedBox in vendor/jsm
+players.json        the people in the arena (display name, headshot, and a 3D model if there is one)
+media/players/      headshots, <id>.webp
+media/avatars/      Roblox 3D avatars, <id>.glb (OBJ thumbnail converted to GLB, meshopt + webp)
 ```
+
+## Players
+
+Enemies in the arena wear the avatars in `media/avatars/` and show the `displayName` from `players.json` on their ESP
+box. A player without a `model` still shows up by name on a blocky stand-in. To add someone, put their `<id>.glb` in
+`media/avatars/` and add `"model": "media/avatars/<id>.glb"` to their entry.
 
 ## Things to change
 

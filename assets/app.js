@@ -145,6 +145,8 @@ async function boot() {
   } catch (e) {
     document.documentElement.classList.add('no-webgl');
   }
+  // the people in the arena: players.json, each one with a model becomes an avatar the enemies wear
+  if (world) fetch('players.json').then((r) => r.json()).then((d) => world.loadAvatars(d.players || [])).catch(() => {});
 
   const resize = () => {
     const w = window.innerWidth, h = window.innerHeight, dpr = window.devicePixelRatio || 1;

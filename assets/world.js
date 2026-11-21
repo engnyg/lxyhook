@@ -1,7 +1,10 @@
 // The ascii world: a real 3D arena rendered small, then redrawn as letters. One letter per cell, picked by how
 // bright the scene is there, coloured by what's there. The camera moves with the scroll; letters near the
 // pointer scramble. Everything the player would call UI (esp boxes, fov circle, the menu) is drawn elsewhere.
-import * as THREE from './vendor/three.module.min.js';
+import * as THREE from 'three';
+import { GLTFLoader } from './vendor/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from './vendor/jsm/libs/meshopt_decoder.module.js';
+import { RoundedBoxGeometry } from './vendor/jsm/geometries/RoundedBoxGeometry.js';
 
 const TAU = Math.PI * 2;
 const RAMP = " .`'-,:;_~^\"!i|l/\\()1tr{}[]cvunxzjfLJYTCo?7+=<>*sZUXOQ0aewkhdbpqgmy%S23456&89$#@WMNB";
@@ -138,7 +141,7 @@ function makeFigure({ shirt, pants, skin }, scale = 1.1) {
   const limb = (w, h, dpt, mat, x, y) => {
     const pivot = new THREE.Group();
     pivot.position.set(x, y, 0);
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, dpt), mat);
+    const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, dpt, 2, 0.06), mat);
     m.position.y = -h / 2;
     pivot.add(m);
     body.add(pivot);
@@ -146,34 +149,103 @@ function makeFigure({ shirt, pants, skin }, scale = 1.1) {
   };
   const legL = limb(0.48, 1.0, 0.5, mats.pants, -0.25, 1.0);
   const legR = limb(0.48, 1.0, 0.5, mats.pants, 0.25, 1.0);
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.0, 0.5), mats.shirt);
+  const torso = new THREE.Mesh(new RoundedBoxGeometry(1.0, 1.0, 0.5, 2, 0.06), mats.shirt);
   torso.position.y = 1.5;
   body.add(torso);
   const armL = limb(0.48, 1.0, 0.48, mats.shirt, -0.75, 2.0);
   const armR = limb(0.48, 1.0, 0.48, mats.shirt, 0.75, 2.0);
   armL.children[0].material = mats.skin; armR.children[0].material = mats.skin;
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.62, 0.62), mats.skin);
+  const head = new THREE.Mesh(new RoundedBoxGeometry(0.62, 0.62, 0.62, 3, 0.12), mats.skin);
   head.position.y = 2.33;
   body.add(head);
   root.scale.setScalar(scale);
-  return { root, body, legL, legR, armL, armR, head, torso, mats, scale, height: 2.65 * scale };
+  return { root, body, legL, legR, armL, armR, head, heads: new Set([head]), torso, mats, scale, height: 2.65 * scale, headY: 2.33 * scale };
 }
 
-function makeRifle(mat, accent) {
+// a Roblox avatar (3D thumbnail, OBJ -> GLB): stand it on its feet, face it +z, scale it to targetH, and hang the
+// legs and arms on pivots so it can walk. Body parts are named Player*, accessories Handle*; R6 and R15 both work,
+// limbs are sorted by where they sit rather than by name.
+function makeAvatar(src, targetH = 3.0) {
+  src.updateMatrixWorld(true);
+  const meshes = [];
+  src.traverse((o) => { if (o.isMesh) meshes.push(o); });
+  const named = (m) => `${m.name} ${m.parent ? m.parent.name : ''}`;
+  let parts = meshes.filter((m) => /player/i.test(named(m)));
+  if (!parts.length) parts = meshes;
+  const box = new THREE.Box3();
+  parts.forEach((m) => box.expandByObject(m));
+  const all = new THREE.Box3();
+  meshes.forEach((m) => all.expandByObject(m));
+  const H = Math.max(0.01, box.max.y - box.min.y), Wd = Math.max(0.01, box.max.x - box.min.x);
+  const cx = (box.min.x + box.max.x) / 2, cz = (box.min.z + box.max.z) / 2, y0 = box.min.y;
+  const groups = { legL: [], legR: [], armL: [], armR: [], head: [] };
+  for (const m of parts) {
+    const c = new THREE.Box3().setFromObject(m).getCenter(new THREE.Vector3());
+    const fy = (c.y - y0) / H, fx = (c.x - cx) / Wd;
+    if (fy > 0.8) groups.head.push(m);
+    else if (fy < 0.4 && Math.abs(fx) > 0.02) groups[fx < 0 ? 'legL' : 'legR'].push(m);
+    else if (fy >= 0.4 && Math.abs(fx) > 0.22) groups[fx < 0 ? 'armL' : 'armR'].push(m);
+  }
+  const pivot = (list) => {
+    const p = new THREE.Group();
+    if (!list.length) return p;
+    const b = new THREE.Box3();
+    list.forEach((m) => b.expandByObject(m));
+    p.position.set((b.min.x + b.max.x) / 2, b.max.y, (b.min.z + b.max.z) / 2);
+    src.add(p);
+    p.updateMatrixWorld(true);
+    list.forEach((m) => p.attach(m));
+    return p;
+  };
+  const legL = pivot(groups.legL), legR = pivot(groups.legR), armL = pivot(groups.armL), armR = pivot(groups.armR);
+  const headBox = new THREE.Box3();
+  groups.head.forEach((m) => headBox.expandByObject(m));
+  const k = targetH / H;
+  const root = new THREE.Group(), body = new THREE.Group(), inner = new THREE.Group(), holder = new THREE.Group();
+  root.add(body); body.add(inner); inner.add(holder); holder.add(src);
+  inner.rotation.y = Math.PI;
+  inner.scale.setScalar(k);
+  holder.position.set(-cx, -y0, -cz);
+  meshes.forEach((m) => { if (m.material) { m.material.side = THREE.FrontSide; } m.frustumCulled = false; });
+  const headY = groups.head.length ? ((headBox.min.y + headBox.max.y) / 2 - y0) * k : targetH * 0.88;
+  const height = Math.min(targetH * 1.35, (all.max.y - y0) * k);
+  return { root, body, legL, legR, armL, armR, head: groups.head[0] || new THREE.Group(), heads: new Set(groups.head), torso: null, scale: 1, height, headY, avatar: true };
+}
+
+// a rifle built from rounded boxes and cylinders, forward is +z. The parts that take a wrap are listed in userData
+function makeRifle(bodyMat, darkMat, accentMat) {
   const g = new THREE.Group();
-  const box = (w, h, dpt, x, y, z, m = mat) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, dpt), m); b.position.set(x, y, z); g.add(b); return b; };
-  box(0.16, 0.22, 0.9, 0, 0, 0.1);            // receiver
-  box(0.08, 0.08, 0.7, 0, 0.03, 0.85);        // barrel
-  box(0.14, 0.3, 0.12, 0, -0.22, 0.2, accent); // magazine
-  box(0.12, 0.2, 0.32, 0, -0.04, -0.48);      // stock
-  box(0.1, 0.1, 0.3, 0, 0.17, 0.12, accent);  // scope
+  const wrap = [];
+  const rb = (w, h, d, r, mat, x, y, z, rx = 0) => { const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 2, r), mat); m.position.set(x, y, z); m.rotation.x = rx; g.add(m); return m; };
+  const cyl = (r, len, mat, x, y, z, seg = 18) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, seg), mat); m.rotation.x = Math.PI / 2; m.position.set(x, y, z); g.add(m); return m; };
+  wrap.push(rb(0.17, 0.24, 0.78, 0.03, bodyMat, 0, 0, 0.05));        // receiver
+  wrap.push(rb(0.15, 0.17, 0.62, 0.04, bodyMat, 0, 0.0, 0.72));      // handguard
+  cyl(0.032, 0.55, darkMat, 0, 0.02, 1.25);                          // barrel
+  cyl(0.05, 0.14, darkMat, 0, 0.02, 1.55);                           // muzzle brake
+  rb(0.12, 0.34, 0.15, 0.03, darkMat, 0, -0.27, 0.24, 0.22);         // magazine
+  rb(0.1, 0.26, 0.14, 0.03, darkMat, 0, -0.22, -0.22, -0.35);        // grip
+  rb(0.03, 0.07, 0.16, 0.01, darkMat, 0, -0.14, -0.02);              // trigger guard
+  wrap.push(rb(0.13, 0.2, 0.46, 0.04, bodyMat, 0, -0.04, -0.58));    // stock
+  rb(0.15, 0.27, 0.06, 0.02, darkMat, 0, -0.05, -0.83);              // butt pad
+  rb(0.05, 0.03, 0.7, 0.01, darkMat, 0, 0.135, 0.25);                // top rail
+  cyl(0.055, 0.42, darkMat, 0, 0.25, 0.18);                          // scope
+  cyl(0.07, 0.1, darkMat, 0, 0.25, 0.42);
+  cyl(0.065, 0.08, darkMat, 0, 0.25, -0.04);
+  cyl(0.06, 0.012, accentMat, 0, 0.25, 0.473);                       // lens
+  rb(0.04, 0.09, 0.04, 0.01, darkMat, 0, 0.18, 0.08);
+  rb(0.04, 0.09, 0.04, 0.01, darkMat, 0, 0.18, 0.3);
+  g.userData.wrap = wrap;
   return g;
 }
 
 export function createWorld(canvas) {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance' });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
   renderer.setClearColor(0x000000, 1);
+  renderer.autoClear = false;
   const scene = new THREE.Scene();
+  // people and guns live in their own scene: drawn solid on top of the letters, hidden behind walls by a depth pass
+  const solid = new THREE.Scene();
+  const depthMat = new THREE.MeshBasicMaterial({ colorWrite: false });
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 1500);
   const envTarget = new THREE.WebGLRenderTarget(4, 4, { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: true });
 
@@ -188,6 +260,31 @@ export function createWorld(canvas) {
   const post = new THREE.Scene();
   const postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   post.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({ uniforms, vertexShader: VERT, fragmentShader: FRAG, depthTest: false, depthWrite: false })));
+  // the solid layer is drawn into its own texture, then laid over the letters with the same copy pockets cut out
+  const solidTarget = new THREE.WebGLRenderTarget(4, 4, { samples: 4, type: THREE.HalfFloatType, depthBuffer: true });
+  const compU = { tSolid: { value: solidTarget.texture }, uRes: uniforms.uRes, uSize: { value: new THREE.Vector2(1, 1) }, uMask: uniforms.uMask, uMaskN: uniforms.uMaskN, uFeather: uniforms.uFeather };
+  const comp = new THREE.Scene();
+  comp.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+    uniforms: compU, vertexShader: VERT, depthTest: false, depthWrite: false, transparent: true,
+    fragmentShader: `
+      uniform sampler2D tSolid; uniform vec2 uSize; uniform vec4 uMask[8]; uniform int uMaskN; uniform float uFeather;
+      float keepAt(vec2 c) {
+        float k = 1.0;
+        for (int i = 0; i < 8; i++) {
+          if (i >= uMaskN) break;
+          vec4 r = uMask[i];
+          vec2 d = max(r.xy - c, c - r.zw);
+          float sd = length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
+          k = min(k, smoothstep(0.0, uFeather, sd));
+        }
+        return k;
+      }
+      void main() {
+        vec4 c = texture2D(tSolid, gl_FragCoord.xy / uSize);
+        float a = c.a * keepAt(gl_FragCoord.xy);
+        gl_FragColor = linearToOutputTexel(vec4(c.rgb / max(c.a, 1e-4), a));
+      }`,
+  })));
 
   // ---------------------------------------------------------------- sky, light, fog
   const skyU = { uTop: { value: new THREE.Color() }, uHor: { value: new THREE.Color() } };
@@ -210,6 +307,11 @@ export function createWorld(canvas) {
   dir.position.set(30, 60, 20);
   scene.add(hemi, dir, dir.target);
   scene.fog = new THREE.Fog(0x05060a, 40, 170);
+  solid.fog = scene.fog;
+  const sHemi = new THREE.HemisphereLight(0xdfe4ff, 0x3a3448, 2.2);
+  const sDir = new THREE.DirectionalLight(0xffffff, 2.2);
+  const sRim = new THREE.DirectionalLight(0xc9b8ff, 1.6);
+  solid.add(sHemi, sDir, sDir.target, sRim, sRim.target);
 
   // ---------------------------------------------------------------- the arena
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(520, 520), new THREE.MeshStandardMaterial({ color: 0xffffff, map: gridTexture(), roughness: 1 }));
@@ -246,26 +348,44 @@ export function createWorld(canvas) {
 
   // ---------------------------------------------------------------- the player (us) and the enemies
   const player = makeFigure({ shirt: 0xe9e3ff, pants: 0x3a3e52, skin: 0xf3e4d6 }, 1.35);
-  const rifleMat = new THREE.MeshStandardMaterial({ color: 0x2c2f3d, roughness: 0.6 });
-  const rifleAccent = new THREE.MeshStandardMaterial({ color: 0xe6bafb, emissive: 0x4a3060 });
-  const prifle = makeRifle(rifleMat, rifleAccent);
-  prifle.position.set(0, -0.95, 0.35);
+  const gunDark = new THREE.MeshStandardMaterial({ color: 0x24262f, roughness: 0.45, metalness: 0.55 });
+  const gunBody = new THREE.MeshStandardMaterial({ color: 0x3a3d4c, roughness: 0.6, metalness: 0.2 });
+  const gunLens = new THREE.MeshStandardMaterial({ color: 0xe6bafb, emissive: 0x8a5fb0, emissiveIntensity: 0.8 });
+  const prifle = makeRifle(gunBody, gunDark, gunLens);
+  prifle.position.set(0, -0.95, 0.3);
   prifle.rotation.x = Math.PI / 2;
   player.armR.add(prifle);
   player.root.position.set(0, 0.6, 0);
-  scene.add(player.root);
-  const muzzleLocal = new THREE.Vector3(0, 0.03, 1.2);
+  solid.add(player.root);
+  const muzzleLocal = new THREE.Vector3(0, 0.02, 1.63);
   let aimYaw = 0.4, aimPitch = 0, wanderT = 0, cool = 0.6;
 
   const SHIRTS = [0xe0735c, 0x5ab0e0, 0xe0c65c, 0x7ce06a, 0xb36ae0, 0xe06aa8];
   const enemies = [];
   const ringPoint = (min = 10, max = 30) => { const a = Math.random() * TAU, d = min + Math.random() * (max - min); return new THREE.Vector3(Math.cos(a) * d, 0, Math.sin(a) * d); };
-  for (let k = 0; k < 6; k++) {
-    const fig = makeFigure({ shirt: SHIRTS[k], pants: 0x34343f, skin: 0xe8c39e });
-    const e = { fig, pos: ringPoint(), goal: ringPoint(), speed: 2.4 + Math.random() * 1.6, hp: 100, alive: true, deadT: 0, phase: Math.random() * 10, name: NAMES[k * 2 % NAMES.length], weapon: pick(WEAPONS), flash: 0, stepT: 0, sndT: 2 + Math.random() * 5, pause: 0, hacker: false, chamsMats: null };
+  for (let k = 0; k < 7; k++) {
+    const fig = makeFigure({ shirt: SHIRTS[k % SHIRTS.length], pants: 0x34343f, skin: 0xe8c39e });
+    const e = { fig, pos: ringPoint(), goal: ringPoint(), speed: 2.4 + Math.random() * 1.6, hp: 100, alive: true, deadT: 0, phase: Math.random() * 10, name: NAMES[k * 2 % NAMES.length], weapon: pick(WEAPONS), flash: 0, stepT: 0, sndT: 2 + Math.random() * 5, pause: 0, hacker: false, chamsMats: null, avatar: null };
     fig.root.position.copy(e.pos);
-    scene.add(fig.root);
+    solid.add(fig.root);
     enemies.push(e);
+  }
+  // avatars that finished loading, and which enemy (if any) is wearing each one
+  const pool = [];
+  let roster = [];   // display names from players.json, for the people who have no model yet
+  const freeName = () => { const used = new Set(enemies.map((x) => x.name)); const left = roster.filter((n) => !used.has(n)); return left.length ? pick(left) : roster.length ? pick(roster) : pick(NAMES); };
+  function wear(e, av) {
+    const old = e.fig;
+    solid.remove(old.root);
+    if (e.avatar) e.avatar.used = false;
+    av.used = true;
+    e.avatar = av;
+    e.fig = av.fig;
+    e.name = av.name;
+    e.chamsMats = null;
+    e.fig.root.position.copy(old.root.position);
+    e.fig.root.rotation.y = old.root.rotation.y;
+    solid.add(e.fig.root);
   }
   const chamsMat = new THREE.MeshBasicMaterial({ color: 0xe6bafb, depthTest: false, transparent: true, opacity: 0.95, fog: false });
   const chamsMatHead = new THREE.MeshBasicMaterial({ color: 0x8ac9f2, depthTest: false, transparent: true, opacity: 0.95, fog: false });
@@ -290,7 +410,11 @@ export function createWorld(canvas) {
   addBlock(SURF.ledge[0], SURF.ledge[1], 0, SURF.ledge[2], ledgeMat);
   const runner = makeFigure({ shirt: 0xe9e3ff, pants: 0x3a3e52, skin: 0xf3e4d6 }, 1.0);
   const ghost = makeFigure({ shirt: 0x8ac9f2, pants: 0x6f84a8, skin: 0xbfd8ee }, 1.0);
-  course.add(runner.root, ghost.root);
+  ghost.root.traverse((o) => { if (o.isMesh) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.45; } });
+  const solidCourse = new THREE.Group();
+  solidCourse.position.copy(P0);
+  solidCourse.add(runner.root, ghost.root);
+  solid.add(solidCourse);
   let courseFrames = [], courseKey = '', rec = { phase: 'rec', t: 0, wait: 0, jumps: 0 };
 
   function simulateCourse(infinite) {
@@ -340,17 +464,20 @@ export function createWorld(canvas) {
   const stand = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.8, 2, 32), new THREE.MeshStandardMaterial({ color: 0x8c92ab }));
   stand.position.y = 1;
   showcase.add(stand);
-  const bigRifle = makeRifle(wrapMat, new THREE.MeshStandardMaterial({ color: 0x2c2f3d }));
-  bigRifle.scale.setScalar(7);
+  const bigRifle = makeRifle(wrapMat, gunDark, gunLens);
+  bigRifle.scale.setScalar(4.4);
   bigRifle.position.y = 6.5;
-  showcase.add(bigRifle);
+  const solidShowcase = new THREE.Group();
+  solidShowcase.position.copy(Q0);
+  solidShowcase.add(bigRifle);
+  solid.add(solidShowcase);
   const charmPivot = new THREE.Group();
-  charmPivot.position.set(0, -0.12, 0.55);
+  charmPivot.position.set(0.09, -0.06, 0.62);
   bigRifle.add(charmPivot);
-  const charm = new THREE.Mesh(new THREE.OctahedronGeometry(0.11), new THREE.MeshStandardMaterial({ color: 0x8ac9f2, emissive: 0x2a4a60 }));
-  charm.position.y = -0.3;
-  const chain = new THREE.Mesh(new THREE.BoxGeometry(0.015, 0.3, 0.015), new THREE.MeshStandardMaterial({ color: 0xcccccc }));
-  chain.position.y = -0.15;
+  const charm = new THREE.Mesh(new THREE.OctahedronGeometry(0.055), new THREE.MeshStandardMaterial({ color: 0x8ac9f2, emissive: 0x2a4a60, metalness: 0.3, roughness: 0.3 }));
+  charm.position.y = -0.2;
+  const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.16, 6), new THREE.MeshStandardMaterial({ color: 0xd6d6e0, metalness: 0.8, roughness: 0.3 }));
+  chain.position.y = -0.08;
   charmPivot.add(charm, chain);
   let wrapName = '', wrapT = 0;
 
@@ -444,15 +571,15 @@ export function createWorld(canvas) {
 
   // ---------------------------------------------------------------- camera keyframes, one per chapter
   const tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3();
-  function eye() { return player.root.position.clone().add(tmp.set(0, 2.35 * player.scale, 0)); }
+  function eye() { return player.root.position.clone().add(tmp.set(0, player.headY, 0)); }
   function aimDir() { return tmp2.set(Math.sin(aimYaw) * Math.cos(aimPitch), Math.sin(aimPitch), Math.cos(aimYaw) * Math.cos(aimPitch)).clone(); }
   const KEYS = {
     hero: (t) => ({ t: [0, 2.6, 0], yaw: 0.7 + t * 0.03, pitch: 0.28, dist: 19, fov: 40, sx: 0.11, sy: -0.15 }),
-    combat: () => { const e = eye(), a = aimDir(); const tg = e.clone().addScaledVector(a, 28); return { t: [tg.x, tg.y, tg.z], yaw: aimYaw + Math.PI + 0.09, pitch: 0.06 - aimPitch, dist: 34, fov: 50, sx: 0.06, sy: -0.1 }; },
+    combat: () => { const e = eye(), a = aimDir(); const tg = e.clone().addScaledVector(a, 24); return { t: [tg.x, tg.y, tg.z], yaw: aimYaw + Math.PI + 0.13, pitch: 0.1 - aimPitch, dist: 33, fov: 50, sx: 0.08, sy: -0.06 }; },
     visuals: (t) => ({ t: [0, 1.5, 0], yaw: 2.3 + t * 0.02, pitch: 0.3, dist: 27, fov: 42, sx: 0.1, sy: -0.12 }),
     world: (t) => ({ t: [0, 9, 0], yaw: 3.7 + t * 0.015, pitch: 0.04, dist: 38, fov: 60, sx: 0.08, sy: -0.12 }),
     player: () => ({ t: [P0.x + 23, 4, 0], yaw: 0.12, pitch: 0.16, dist: 44, fov: 44, sx: 0.12, sy: -0.1 }),
-    cosmetics: (t) => ({ t: [Q0.x, 6.5, 0], yaw: t * 0.12, pitch: 0.14, dist: 15, fov: 38, sx: 0.1, sy: -0.12 }),
+    cosmetics: (t) => ({ t: [Q0.x, 6.5, 0], yaw: 0.3 + Math.sin(t * 0.15) * 0.25, pitch: 0.12, dist: 15, fov: 38, sx: 0.15, sy: -0.13 }),
     automation: (t) => ({ t: [0, 1, 0], yaw: 5.0 + t * 0.03, pitch: 0.62, dist: 46, fov: 42, sx: 0.1, sy: -0.1 }),
     settings: (t) => ({ t: [0, 1, 0], yaw: 5.6 + t * 0.02, pitch: 0.8, dist: 64, fov: 40, sx: 0, sy: 0 }),
     final: () => ({ t: [G0.x, G0.y, G0.z], yaw: 0, pitch: 0.02, dist: 84, fov: 42, sx: 0, sy: -0.14 }),
@@ -472,7 +599,7 @@ export function createWorld(canvas) {
   }
 
   // ---------------------------------------------------------------- per-frame simulation
-  const headOf = (e) => e.fig.root.position.clone().add(tmp.set(0, 2.35 * e.fig.scale, 0));
+  const headOf = (e) => e.fig.root.position.clone().add(tmp.set(0, e.fig.headY, 0));
   function aimAt(v, from) { const d = v.clone().sub(from); return { yaw: Math.atan2(d.x, d.z), pitch: Math.atan2(d.y, Math.hypot(d.x, d.z)) }; }
 
   function shoot(e) {
@@ -524,8 +651,12 @@ export function createWorld(canvas) {
         f.body.rotation.x = -Math.min(1, e.deadT / 0.35) * Math.PI / 2;
         if (e.deadT > 0.9) f.body.position.y = -(e.deadT - 0.9) * 2;
         if (e.deadT > 2.2) {
-          e.alive = true; e.hp = 100; e.pos = ringPoint(); e.goal = ringPoint(); e.name = pick(NAMES); e.weapon = pick(WEAPONS);
+          e.alive = true; e.hp = 100; e.pos = ringPoint(); e.goal = ringPoint(); e.weapon = pick(WEAPONS);
           f.body.rotation.x = 0; f.body.position.y = 0;
+          // come back as someone else from the player list when there's a spare avatar, so everyone shows up
+          const spare = pool.filter((a) => !a.used);
+          if (e.avatar && spare.length) wear(e, pick(spare));
+          else if (!e.avatar) e.name = freeName();
         }
       }
       // chams: draw through walls in a flat colour; a hit flashes white
@@ -535,7 +666,7 @@ export function createWorld(canvas) {
         f.root.traverse((o) => {
           if (!o.isMesh) return;
           if (!o.userData.base) o.userData.base = o.material;
-          o.material = want === 'flash' ? flashMat : want === 'chams' ? (o === f.head ? chamsMatHead : chamsMat) : o.userData.base;
+          o.material = want === 'flash' ? flashMat : want === 'chams' ? (f.heads && f.heads.has(o) ? chamsMatHead : chamsMat) : o.userData.base;
           o.renderOrder = want === 'chams' ? 10 : 0;
         });
       }
@@ -609,17 +740,17 @@ export function createWorld(canvas) {
 
   function updateShowcase(dt, state, time) {
     const live = state.cosmetics && state.unlock;
-    bigRifle.rotation.y = time * 0.35;
-    bigRifle.rotation.x = Math.sin(time * 0.5) * 0.08;
+    bigRifle.rotation.y = Math.PI / 2 + Math.sin(time * 0.45) * 0.55;
+    bigRifle.rotation.z = Math.sin(time * 0.6) * 0.06;
     charmPivot.rotation.x = Math.sin(time * 2.6) * 0.45;
     charmPivot.rotation.z = Math.cos(time * 1.9) * 0.2;
     const name = live ? state.wrap : '';
     if (name !== wrapName) { wrapName = name; wrapT = 0; }
     if (live) {
       if (wrapT < 1) { wrapT = Math.min(1, wrapT + dt * 1.8); paintWrap(name, wrapT); }
-      bigRifle.children[0].material = wrapMat; bigRifle.children[3].material = wrapMat; bigRifle.children[1].material = wrapMat;
+      bigRifle.userData.wrap.forEach((m) => (m.material = wrapMat));
     } else {
-      bigRifle.children[0].material = plainMat; bigRifle.children[3].material = plainMat; bigRifle.children[1].material = plainMat;
+      bigRifle.userData.wrap.forEach((m) => (m.material = plainMat));
     }
   }
 
@@ -644,6 +775,13 @@ export function createWorld(canvas) {
     hemi.color.set(0xa9b6ff).lerp(new THREE.Color(0xdfe8ff), day);
     hemi.intensity = (0.85 + 0.9 * day) * (1 - wet * 0.25) + flash * 4;
     scene.fog.color.copy(hor).multiplyScalar(0.5);
+    // the solid layer gets brighter light than the letters so people read clearly at night
+    sHemi.intensity = 1.6 + 1.0 * day + flash * 3;
+    sDir.position.copy(dir.position); sDir.intensity = 1.4 + 1.2 * day; sDir.color.copy(dir.color);
+    sDir.target.position.set(0, 0, 0);
+    const back = cam.t.clone().sub(camera.position).normalize();
+    sRim.position.copy(cam.t).addScaledVector(back, 40).add(tmp.set(0, 25, 0));
+    sRim.target.position.copy(cam.t);
     rain.visible = !!state.weather;
     clouds.visible = !!state.weather;
     clouds.children.forEach((c, k) => { c.position.x += dt * (1.5 + (k % 3)); if (c.position.x > 160) c.position.x = -160; });
@@ -691,6 +829,8 @@ export function createWorld(canvas) {
       const cwd = Math.round(cw * PR), chd = Math.round(ch * PR);
       const cols = Math.ceil((w * PR) / cwd), rows = Math.ceil((h * PR) / chd);
       envTarget.setSize(cols * 2, rows * 2);
+      solidTarget.setSize(Math.round(w * PR), Math.round(h * PR));
+      compU.uSize.value.set(Math.round(w * PR), Math.round(h * PR));
       uniforms.uRes.value.set(cols * cwd, rows * chd);
       uniforms.uCell.value.set(cwd, chd);
       uniforms.uFeather.value = 46 * PR;
@@ -749,11 +889,46 @@ export function createWorld(canvas) {
       uniforms.uDim.value = opts.dim || 0;
       uniforms.uShimmer.value = opts.reduce ? 0 : 0.025;
     },
+    // the player list from players.json; every entry with a model becomes an avatar an enemy can wear
+    loadAvatars(list) {
+      roster = list.map((p) => p.displayName || p.label || p.username).filter(Boolean);
+      const withModel = new Set(list.filter((p) => p.model).map((p) => p.displayName || p.label || p.username));
+      roster = roster.filter((n) => !withModel.has(n)).concat([...withModel]);
+      for (const e of enemies) if (!e.avatar) e.name = freeName();
+      const loader = new GLTFLoader();
+      loader.setMeshoptDecoder(MeshoptDecoder);
+      for (const p of list) {
+        if (!p.model) continue;
+        loader.load(p.model, (gltf) => {
+          const av = { id: p.id, name: p.displayName || p.label || p.username, fig: makeAvatar(gltf.scene), used: false };
+          pool.push(av);
+          const free = enemies.find((e) => !e.avatar && e.alive);
+          if (free) wear(free, av);
+        }, undefined, () => {});
+      }
+    },
     render() {
       renderer.setRenderTarget(envTarget);
+      renderer.clear();
       renderer.render(scene, camera);
       renderer.setRenderTarget(null);
+      renderer.clear();
       renderer.render(post, postCam);
+      // solid layer: depth of the world only (no colour) so walls cover the people behind them, then the people
+      renderer.setRenderTarget(solidTarget);
+      renderer.setClearColor(0x000000, 0);
+      renderer.clear();
+      const hide = [sky, stars, rain, clouds, bolt, sparks, sun, moon];
+      const was = hide.map((o) => o.visible);
+      hide.forEach((o) => (o.visible = false));
+      scene.overrideMaterial = depthMat;
+      renderer.render(scene, camera);
+      scene.overrideMaterial = null;
+      hide.forEach((o, k) => (o.visible = was[k]));
+      renderer.render(solid, camera);
+      renderer.setClearColor(0x000000, 1);
+      renderer.setRenderTarget(null);
+      renderer.render(comp, postCam);
     },
   };
   return api;
