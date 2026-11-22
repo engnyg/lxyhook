@@ -59,6 +59,7 @@ h1, h2, h3 { margin: 0; }
 main { position: relative; z-index: 2; }
 .chapter { position: relative; min-height: 175vh; padding: calc(var(--top-h) + 7vh) var(--gutter) 0; }
 .chapter--hero { min-height: 150vh; }
+.chapter--long { min-height: 250vh; }
 .chapter--flat { min-height: 0; padding-bottom: 12vh; }
 .chapter--final { min-height: 150vh; display: flex; justify-content: center; align-items: flex-start; }
 .card { position: sticky; top: calc(var(--top-h) + 7vh); width: min(430px, 36vw); text-shadow: 0 1px 12px rgba(0, 0, 0, .9); }
@@ -236,6 +237,7 @@ h3 { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
   body { font-size: 14px; }
   .top .btn--ghost { display: none; }
   .chapter { min-height: 160vh; padding-top: calc(var(--top-h) + 3vh); }
+  .chapter--long { min-height: 230vh; }
   .card, .card--hero { width: 100%; max-width: 560px; top: calc(var(--top-h) + 2vh); }
   .card p:not(.lede):not(.note):not(.hint):not(.kicker):not(.tag) { display: none; }
   .card p.aside { display: none; }

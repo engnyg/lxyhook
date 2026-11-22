@@ -258,8 +258,8 @@ export const PAGES = {
     gb('Unlock All', 1, [t('Unlock All Cosmetics', 'unlock', false), d('Cosmetic Rarities to Unlock', 'All')]),
     gb('Community', 2, [t('Share Skins', null, false), t('Show Active Cosmetics', null, true)]),
   ],
-  'Skins': [gb('Skin Catalog', 1, [d('Weapon', 'Assault Rifle'), d('Skin', 'Default')]), gb('Apply To', 2, [d('Apply To', 'Equipped Weapon')])],
-  'Wraps': [gb('Wrap Catalog', 1, [d('Weapon', 'Assault Rifle'), d('Wrap', 'Hazard', 'wrap'), t('Inverted Wrap', null, false)]), gb('Apply To', 2, [d('Apply To', 'Equipped Weapon')])],
+  'Skins': [gb('Skin Catalog', 1, [d('Weapon', 'Sniper'), d('Skin', 'Default', 'skin', ['Default', 'Keyper'])]), gb('Apply To', 2, [d('Apply To', 'Equipped Weapon')])],
+  'Wraps': [gb('Wrap Catalog', 1, [d('Weapon', 'Sniper'), d('Wrap', 'None', 'wrap', ['None', 'Hazard', 'Checker', 'Static', 'Waves', 'Digital', 'Aurora']), t('Inverted Wrap', null, false)]), gb('Apply To', 2, [d('Apply To', 'Equipped Weapon')])],
   'Charms': [gb('Charm Catalog', 1, [d('Weapon', 'Assault Rifle'), d('Charm', 'Snowflake')]), gb('Rank Charm Override', 2, [t('Enabled', null, false), d('Season', 'All'), d('Rank', 'Archnemesis')])],
   'Finishers': [gb('Finisher Catalog', 1, [d('Weapon', 'Assault Rifle'), d('Finisher', 'Default')])],
   'General': [

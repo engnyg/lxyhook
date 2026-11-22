@@ -21,7 +21,7 @@ const state = {
   esp: false, health: false, chams: false, tracers: true, dmg: true, sound: false,
   weather: false, lightning: false, sparks: true, clock: 22,
   recorder: false, infjump: false,
-  cosmetics: false, loadout: false, unlock: false, wrap: 'Hazard',
+  cosmetics: false, loadout: false, unlock: false, skin: 'Default', wrap: 'None',
   hacker: false, mod: false, queue: false,
 };
 
@@ -35,7 +35,11 @@ const STORY = {
   visuals: (l) => ({ page: l < 0.62 ? 'Player ESP' : 'Sound ESP', set: { aimbot: false, silent: true, esp: l > 0.04, health: l > 0.16, chams: l > 0.34 && l < 0.62, sound: l > 0.62 } }),
   world: (l) => ({ page: l < 0.5 ? 'Sky & Weather' : 'Lighting', set: { esp: false, health: false, sound: false, chams: false, weather: l > 0.05 && l < 0.5, lightning: l > 0.16 && l < 0.5, clock: (22 + smooth(0.52, 0.96, l) * 14) % 24 } }),
   player: (l) => ({ page: l < 0.5 ? 'Movement Recorder' : 'Movement', set: { weather: false, recorder: l > 0.04, infjump: l > 0.5, clock: 22 } }),
-  cosmetics: (l, t) => ({ page: l < 0.46 ? 'Overview' : 'Wraps', set: { clock: 22, cosmetics: l > 0.05, loadout: l > 0.12, unlock: l > 0.2, wrap: l < 0.46 ? 'Hazard' : WRAPS[Math.floor(t / 2.2) % WRAPS.length] } }),
+  cosmetics: (l, t) => ({
+    // the camera reaches the stand around 0.45 and leaves around 0.8: default gun, then Keyper, then wraps
+    page: l < 0.5 ? 'Overview' : l < 0.66 ? 'Skins' : 'Wraps',
+    set: { clock: 22, cosmetics: l > 0.05, loadout: l > 0.12, unlock: l > 0.2, skin: l > 0.53 ? 'Keyper' : 'Default', wrap: l < 0.68 ? 'None' : WRAPS[Math.floor(t / 2.2) % WRAPS.length] },
+  }),
   automation: (l) => ({ page: l < 0.5 ? 'Detection' : 'Match Flow', set: { clock: 22, silent: true, esp: true, health: true, hacker: l > 0.06, mod: l > 0.3, queue: l > 0.55 } }),
   settings: () => ({ page: null, set: { hacker: false } }),
   final: () => ({ page: null, set: {} }),
@@ -210,7 +214,7 @@ async function boot() {
       world.setMasks(masks);
       world.setPointer(ptr.x, ptr.y, REDUCE ? 0 : ptr.s);
       const mobile = window.innerWidth < 900;
-      world.update(dt, time, state, st, { px: ptr.px, py: ptr.py, dim: weight(DIM, st), reduce: REDUCE, sy: mobile ? 0.05 : 0, sx: mobile ? 0.05 : 0 });
+      world.update(dt, time, state, st, { px: ptr.px, py: ptr.py, dim: weight(DIM, st), reduce: REDUCE, narrow: mobile, sy: mobile ? 0.05 : 0, sx: mobile ? 0.05 : 0 });
       world.render();
       hud.draw(dt, state, { arena: weight(ARENA, st), aim: weight(AIM, st), course: weight(COURSE, st) }, masks);
     }

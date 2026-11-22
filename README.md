@@ -14,6 +14,7 @@ assets/vendor/three.module.min.js   three.js r169 (MIT, licence next to it), plu
 players.json        the people in the arena (display name, headshot, and a 3D model if there is one)
 media/players/      headshots, <id>.webp
 media/avatars/      Roblox 3D avatars, <id>.glb (OBJ thumbnail converted to GLB, meshopt + webp)
+media/weapons/      keyper_sniper.glb: the Keyper sniper skin (supplied OBJ, centred, converted to GLB + meshopt)
 ```
 
 ## Players

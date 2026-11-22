@@ -272,6 +272,43 @@ function makeRifle(bodyMat, darkMat, accentMat) {
   return g;
 }
 
+// the Keyper sniper skin (media/weapons/keyper_sniper.glb, centred, muzzle toward -z): turn it to point +z, give it
+// gold glass materials, and a side-on UV projection so a wrap can be painted on it (the model has no UVs of its own)
+const KEYPER_LEN = 5.52;
+const keyperMats = {
+  gold: new THREE.MeshStandardMaterial({ color: 0xffba0a, emissive: 0x3a2400, metalness: 0.35, roughness: 0.22, transparent: true, opacity: 0.82 }),
+  darkGold: new THREE.MeshStandardMaterial({ color: 0xe6a709, emissive: 0x2c1b00, metalness: 0.35, roughness: 0.25, transparent: true, opacity: 0.78 }),
+  bullet: new THREE.MeshStandardMaterial({ color: 0xffc71a, emissive: 0x4a3000, metalness: 0.6, roughness: 0.18 }),
+  core: new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4, metalness: 0.2 }),
+  plain: new THREE.MeshStandardMaterial({ color: 0x3e4252, roughness: 0.55, metalness: 0.25 }),
+  plainDark: new THREE.MeshStandardMaterial({ color: 0x1c1d24, roughness: 0.5, metalness: 0.4 }),
+};
+function makeKeyper(src) {
+  const g = new THREE.Group();
+  const model = src.clone(true);
+  model.rotation.y = Math.PI;
+  g.add(model);
+  const parts = {};
+  model.traverse((o) => {
+    if (!o.isMesh) return;
+    const n = o.name || (o.parent && o.parent.name) || '';
+    const geo = o.geometry;
+    const pos = geo.attributes.position, uv = new Float32Array(pos.count * 2);
+    for (let i = 0; i < pos.count; i++) { uv[i * 2] = (pos.getZ(i) + KEYPER_LEN / 2) / KEYPER_LEN * 4; uv[i * 2 + 1] = (pos.getY(i) + 1) / 2; }
+    geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    const m = /Core|Charm_Extra2/.test(n) ? keyperMats.core : /Bullet/.test(n) ? keyperMats.bullet : /Magazine_Base|Charm_Extra1/.test(n) ? keyperMats.darkGold : keyperMats.gold;
+    o.material = m;
+    o.userData.skin = m;
+    o.userData.plain = m === keyperMats.core ? keyperMats.plainDark : keyperMats.plain;
+    o.userData.wrappable = /Main_Frame|Scope_Tube|Magazine_Body|Bolt/.test(n);
+    o.frustumCulled = false;
+    parts[n] = o;
+  });
+  g.userData.parts = parts;
+  g.userData.meshes = Object.values(parts);
+  return g;
+}
+
 export function createWorld(canvas) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
   renderer.setClearColor(0x000000, 1);
@@ -392,6 +429,9 @@ export function createWorld(canvas) {
   player.root.position.set(0, 0.6, 0);
   solid.add(player.root);
   const muzzleLocal = new THREE.Vector3(0, 0.02, 1.63);
+  const loader = new GLTFLoader();
+  loader.setMeshoptDecoder(MeshoptDecoder);
+  let keyperBig = null;
   let aimYaw = 0.4, aimPitch = 0, wanderT = 0, cool = 0.6;
 
   const SHIRTS = [0xe0735c, 0x5ab0e0, 0xe0c65c, 0x7ce06a, 0xb36ae0, 0xe06aa8];
@@ -613,11 +653,12 @@ export function createWorld(canvas) {
     visuals: (t) => ({ t: [0, 1.5, 0], yaw: 2.3 + t * 0.02, pitch: 0.3, dist: 27, fov: 42, sx: 0.1, sy: -0.12 }),
     world: (t) => ({ t: [0, 9, 0], yaw: 3.7 + t * 0.015, pitch: 0.04, dist: 38, fov: 60, sx: 0.08, sy: -0.12 }),
     player: () => ({ t: [P0.x + 23, 4, 0], yaw: 0.12, pitch: 0.16, dist: 44, fov: 44, sx: 0.12, sy: -0.1 }),
-    cosmetics: (t) => ({ t: [Q0.x, 6.5, 0], yaw: 0.3 + Math.sin(t * 0.15) * 0.25, pitch: 0.12, dist: 15, fov: 38, sx: 0.15, sy: -0.13 }),
+    cosmetics: (t) => ({ t: [Q0.x, 6.6, 0], yaw: 0.3 + Math.sin(t * 0.15) * 0.25, pitch: 0.12, dist: narrow ? 26 : 16, fov: 38, sx: narrow ? -0.05 : 0.24, sy: narrow ? -0.14 : -0.12 }),
     automation: (t) => ({ t: [0, 1, 0], yaw: 5.0 + t * 0.03, pitch: 0.62, dist: 46, fov: 42, sx: 0.1, sy: -0.1 }),
     settings: (t) => ({ t: [0, 1, 0], yaw: 5.6 + t * 0.02, pitch: 0.8, dist: 64, fov: 40, sx: 0, sy: 0 }),
     final: () => ({ t: [G0.x, G0.y, G0.z], yaw: 0, pitch: 0.02, dist: 84, fov: 42, sx: 0, sy: -0.14 }),
   };
+  let narrow = false;
   const cam = { t: new THREE.Vector3(0, 2, 0), yaw: 0.7, pitch: 0.4, dist: 33, fov: 40, sx: 0, sy: 0, init: false };
   let W = 1, H = 1, PR = 1;
 
@@ -785,15 +826,34 @@ export function createWorld(canvas) {
     bigRifle.rotation.z = Math.sin(time * 0.6) * 0.06;
     charmPivot.rotation.x = Math.sin(time * 2.6) * 0.45;
     charmPivot.rotation.z = Math.cos(time * 1.9) * 0.2;
-    const name = live ? state.wrap : '';
+    const name = live && state.wrap && state.wrap !== 'None' ? state.wrap : '';
     if (name !== wrapName) { wrapName = name; wrapT = 0; }
-    if (live) {
-      if (wrapT < 1) { wrapT = Math.min(1, wrapT + dt * 1.8); paintWrap(name, wrapT); }
+    if (name && wrapT < 1) { wrapT = Math.min(1, wrapT + dt * 1.8); paintWrap(name, wrapT); }
+    if (keyperBig) {
+      // default skin (plain) -> Keyper -> Keyper with a wrap on its frame, scope, bolt and magazine
+      const skin = live && state.skin === 'Keyper';
+      for (const m of keyperBig.userData.meshes) m.material = name && m.userData.wrappable ? wrapMat : skin ? m.userData.skin : m.userData.plain;
+    } else if (name) {
       bigRifle.userData.wrap.forEach((m) => (m.material = wrapMat));
     } else {
       bigRifle.userData.wrap.forEach((m) => (m.material = plainMat));
     }
   }
+  // the Keyper sniper replaces the stand-in rifles once it has loaded: in the player's hands and on the stand
+  loader.load('media/weapons/keyper_sniper.glb', (gltf) => {
+    const held = makeKeyper(gltf.scene);
+    const k = 2.7 / KEYPER_LEN;
+    held.scale.setScalar(k);
+    held.position.set(0, -0.08, 0.55);
+    prifle.children.forEach((c) => (c.visible = false));
+    prifle.add(held);
+    muzzleLocal.set(0, 0.02, 0.55 + KEYPER_LEN / 2 * k);
+    keyperBig = makeKeyper(gltf.scene);
+    keyperBig.scale.setScalar(7.2 / KEYPER_LEN / 4.4);
+    bigRifle.children.forEach((c) => { if (c !== charmPivot) c.visible = false; });
+    charmPivot.visible = false;
+    bigRifle.add(keyperBig);
+  }, undefined, () => {});
 
   function updateSky(dt, state, time) {
     const clock = ((state.clock % 24) + 24) % 24;
@@ -893,6 +953,7 @@ export function createWorld(canvas) {
       return { x: (p.x * 0.5 + 0.5) * W, y: (-p.y * 0.5 + 0.5) * H, on: p.z > -1 && p.z < 1 };
     },
     update(dt, time, state, story, opts) {
+      narrow = !!opts.narrow;
       updateEnemies(dt, state);
       updatePlayer(dt, state, time);
       updateCourse(dt, state, time);
@@ -936,8 +997,6 @@ export function createWorld(canvas) {
       const withModel = new Set(list.filter((p) => p.model).map((p) => p.displayName || p.label || p.username));
       roster = roster.filter((n) => !withModel.has(n)).concat([...withModel]);
       for (const e of enemies) if (!e.avatar) e.name = freeName();
-      const loader = new GLTFLoader();
-      loader.setMeshoptDecoder(MeshoptDecoder);
       for (const p of list) {
         if (!p.model) continue;
         loader.load(p.model, (gltf) => {
