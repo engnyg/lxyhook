@@ -853,6 +853,7 @@ export function createWorld(canvas) {
     bigRifle.children.forEach((c) => { if (c !== charmPivot) c.visible = false; });
     charmPivot.visible = false;
     bigRifle.add(keyperBig);
+    warmUp();
   }, undefined, () => {});
 
   function updateSky(dt, state, time) {
@@ -912,6 +913,47 @@ export function createWorld(canvas) {
       sparkGeo.attributes.position.needsUpdate = true;
     }
     void time;
+  }
+
+  // ---------------------------------------------------------------- warm-up
+  // Everything the page switches in later (chams, the hit flash, the Keyper skins, wraps, rain, lightning, an
+  // avatar's textures) would otherwise compile its shader or upload its textures the first time it shows up, in the
+  // middle of a frame. Switching chapters fast hits several at once and the page hitches; do it ahead of time.
+  const warmGroup = new THREE.Group();
+  warmGroup.position.set(0, -60, 0);   // under the ground: the world's depth pass hides whatever is in here
+  solid.add(warmGroup);
+  {
+    const geo = new THREE.BoxGeometry(0.001, 0.001, 0.001);
+    for (const m of [chamsMat, chamsMatHead, flashMat, wrapMat, plainMat, gunLens, ...Object.values(keyperMats)]) {
+      const mesh = new THREE.Mesh(geo, m);
+      mesh.frustumCulled = false;
+      warmGroup.add(mesh);
+    }
+  }
+  // compileAsync collects what to build when it is called, so hidden effects and the extra object are only shown for
+  // the length of the call, never for a rendered frame
+  function warmUp(extra) {
+    if (extra) warmGroup.add(extra);
+    const fx = [rain, clouds, bolt, sparks, stars, sun, moon];
+    const was = fx.map((o) => o.visible);
+    fx.forEach((o) => (o.visible = true));
+    let done;
+    try {
+      done = Promise.all([renderer.compileAsync(solid, camera), renderer.compileAsync(scene, camera)]);
+    } catch (err) {
+      done = Promise.resolve();   // no async compile: it just compiles on first use, as before
+    }
+    fx.forEach((o, k) => (o.visible = was[k]));
+    if (extra && extra.parent === warmGroup) warmGroup.remove(extra);
+    return done.catch(() => {});
+  }
+  function uploadTextures(root) {
+    root.traverse((o) => {
+      if (!o.isMesh) return;
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+        if (m && m.map) renderer.initTexture(m.map);
+      }
+    });
   }
 
   // ---------------------------------------------------------------- public api
@@ -1001,9 +1043,10 @@ export function createWorld(canvas) {
         if (!p.model) continue;
         loader.load(p.model, (gltf) => {
           const av = { id: p.id, name: p.displayName || p.label || p.username, fig: makeAvatar(gltf.scene), used: false };
+          uploadTextures(av.fig.root);
           pool.push(av);
           const free = enemies.find((e) => !e.avatar && e.alive);
-          if (free) wear(free, av);
+          if (free) { wear(free, av); warmUp(); } else warmUp(av.fig.root);
         }, undefined, () => {});
       }
     },
@@ -1031,5 +1074,6 @@ export function createWorld(canvas) {
       renderer.render(comp, postCam);
     },
   };
+  warmUp();
   return api;
 }

@@ -174,7 +174,8 @@ export function createHud(canvas, world) {
       ctx.globalAlpha = 1;
     }
     if (f < 0.01) return;
-    const upto = R.phase === 'rec' ? Math.floor(R.t * 60) : R.frames.length - 1;
+    // R.t runs up to the full length, which is one past the last frame
+    const upto = Math.min(R.frames.length - 1, R.phase === 'rec' ? Math.floor(R.t * 60) : R.frames.length - 1);
     ctx.lineWidth = 2;
     ctx.strokeStyle = R.phase === 'rec' ? `rgba(255,107,107,${0.9 * f * k})` : `rgba(161,169,225,${0.9 * f * k})`;
     ctx.beginPath();
@@ -229,12 +230,17 @@ export function createHud(canvas, world) {
       for (const r of masks) ctx.rect(r.left - 10, r.top - 10, r.width + 20, r.height + 20);
       ctx.clip('evenodd');
       const arena = clamp(mix.arena, 0, 1), course = clamp(mix.course, 0, 1);
-      drawSound(dt, state, arena);
-      drawEsp(dt, state, arena);
-      drawShots(dt, state, arena);
-      drawAim(dt, state, clamp(mix.aim, 0, 1));
-      drawRecorder(dt, state, course);
-      ctx.restore();
+      // restore even if a draw throws, or the clip would pile up frame after frame
+      try {
+        drawSound(dt, state, arena);
+        drawEsp(dt, state, arena);
+        drawShots(dt, state, arena);
+        drawAim(dt, state, clamp(mix.aim, 0, 1));
+        drawRecorder(dt, state, course);
+      } finally {
+        ctx.globalAlpha = 1;
+        ctx.restore();
+      }
     },
   };
 }

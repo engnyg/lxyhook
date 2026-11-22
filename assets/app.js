@@ -176,7 +176,17 @@ async function boot() {
   const prev = {};
   let last = performance.now(), time = 0, wasId = '';
 
+  // the next frame is booked first and the work runs inside try/catch, so one bad frame can't stop the page
+  let errors = 0;
   function frame(now) {
+    requestAnimationFrame(frame);
+    try {
+      step(now);
+    } catch (err) {
+      if (errors++ < 3) console.error(err);
+    }
+  }
+  function step(now) {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
     time += dt * (REDUCE ? 0.35 : 1);
@@ -219,7 +229,6 @@ async function boot() {
       hud.draw(dt, state, { arena: weight(ARENA, st), aim: weight(AIM, st), course: weight(COURSE, st) }, masks);
     }
     if (Math.floor(time) !== Math.floor(time - dt)) menu.tickClock();
-    requestAnimationFrame(frame);
   }
   requestAnimationFrame((t) => { last = t; frame(t); });
 }
